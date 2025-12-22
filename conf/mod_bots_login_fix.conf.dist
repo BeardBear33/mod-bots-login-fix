@@ -1,0 +1,59 @@
+###################################################################################################
+#
+#  mod-bots-login-fix
+#
+#  Czech / English configuration for fixing duplicate logins when bots (playerbots) are involved.
+#
+#  This module is evaluated on packet CMSG_PLAYER_LOGIN.
+#  Depending on the selected variation, it will kick/log out bots or other sessions to avoid
+#  account lock / stuck loading screen issues.
+#
+#  NOTE: All module messages are printed with LOG_INFO on channel: "bots_login_fix"
+#        So INFO level is usually enough to see what's happening.
+#        Add in worldserver.conf "Logger.bots_login_fix=4,Console Server"
+#
+###################################################################################################
+
+###################################################################################################
+# Bots.login.language
+#
+# Output language for module logs.
+# Supported values: "cs" or "en"
+#
+# Default: en
+###################################################################################################
+Bots.login.language = en
+
+###################################################################################################
+# 
+# Selects which variation is active.
+#
+# 1 = Variation 1 (Kick Client)
+#     CZ:
+#     - Odpojí pouze klienta při pokusu o připojení na postavu, která je již ve hře jako AltBot.
+#
+#     EN:
+#     - It disconnects only the client when trying to log into a character that is already in the game as an AltBot.
+#
+# 2 = Variation 2 (Kick AltBot master = all AltBots)
+#     CZ:
+#     - Když se nový klient pokusí připojit do hry na postavu, která je ve světě aktivní jako AltBot,
+#       modul odpojí (kickne) jejího mastera.
+#     - Odpojením mastera se automaticky odpojí i všichni jeho AltBoti.
+#
+#     EN:
+#     - If a new client attempts to enter the world on a character that is currently active as an AltBot,
+#       the module disconnects (kicks) that AltBot’s master.
+#     - Disconnecting the master automatically disconnects all AltBots controlled by that master.
+#
+# 3 = Variation 3 (Kick Altbot)
+#     CZ:
+#     - V případě pokusu o připojení na postavu, která je již ve hře jako AltBot, ji odpojí a připojí pouze skutečného klienta.
+#
+#     EN:
+#     - If a client attempts to log into a character that is already in the game as an AltBot, it disconnects that character and only the real client connects.
+#
+#
+# Default: 3
+###################################################################################################
+Bots.login.fix = 3
