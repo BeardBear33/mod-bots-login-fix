@@ -5,41 +5,26 @@
 #include "WorldPacket.h"
 #include "Opcodes.h"
 #include "Player.h"
-#include "Log.h"
-#include "AccountMgr.h"
+#include "ObjectAccessor.h"
 
 #include "Playerbots.h"
 
-#include <string>
-#include <fmt/format.h>
-
-namespace BBBotsLoginFixConfig
-{
-    std::string Tr(std::string const& cs, std::string const& en);
-}
-
 namespace
 {
-    constexpr char const* LOG_CH = "bots_login_fix";
-
-    static Player* FindOnlinePlayerByGuid(ObjectGuid guid)
+    static Player* FindOnlineAltbotByGuid(ObjectGuid guid)
     {
-        auto const& players = HashMapHolder<Player>::GetContainer();
+        if (!guid)
+            return nullptr;
 
-        for (auto const& kv : players)
-        {
-            Player* p = kv.second;
-            if (!p || !p->IsInWorld())
-                continue;
+        Player* p = ObjectAccessor::FindPlayer(guid);
+        if (!p || !p->IsInWorld())
+            return nullptr;
 
-            if (!p->GetSession())
-                continue;
+        PlayerbotAI* ai = GET_PLAYERBOT_AI(p);
+        if (!ai || ai->IsRealPlayer())
+            return nullptr;
 
-            if (p->GetGUID() == guid)
-                return p;
-        }
-
-        return nullptr;
+        return p;
     }
 
     static bool TryReadLoginGuid(WorldPacket& packet, ObjectGuid& outGuid)
@@ -95,7 +80,8 @@ namespace
 class BotsLoginFix_Variation3_TargetAltbotOnly_Playerbots : public ServerScript
 {
 public:
-    BotsLoginFix_Variation3_TargetAltbotOnly_Playerbots() : ServerScript("BotsLoginFix_Variation3_TargetAltbotOnly_Playerbots") {}
+    BotsLoginFix_Variation3_TargetAltbotOnly_Playerbots()
+        : ServerScript("BotsLoginFix_Variation3_TargetAltbotOnly_Playerbots") {}
 
     bool CanPacketReceive(WorldSession* session, WorldPacket& packet) override
     {
@@ -109,36 +95,11 @@ public:
         if (!TryReadLoginGuid(packet, loginGuid) || !loginGuid)
             return true;
 
-        Player* existing = FindOnlinePlayerByGuid(loginGuid);
-        if (!existing)
+        Player* existingAltbot = FindOnlineAltbotByGuid(loginGuid);
+        if (!existingAltbot)
             return true;
 
-        PlayerbotAI* existingAI = GET_PLAYERBOT_AI(existing);
-        bool isAltbot = (existingAI && !existingAI->IsRealPlayer());
-        if (!isAltbot)
-            return true;
-
-        uint32 acc = session->GetAccountId();
-        std::string username = "unknown";
-        AccountMgr::GetName(acc, username);
-
-        {
-            std::string msg = fmt::format(
-                BBBotsLoginFixConfig::Tr(
-                    "[Bot Login Fix] Účet {} (ID: {}) se pokouší přihlásit na postavu '{}' která je již online. Odpojuji postavu.",
-                    "[Bot Login Fix] Account {} (ID: {}) is trying to log into '{}' which is already online. Disconnecting the character."
-                ),
-                username, acc, existing->GetName().c_str()
-            );
-            LOG_INFO(LOG_CH, "{}", msg);
-        }
-
-        bool ok = ForceLogoutViaPlayerbotHolder(existing);
-        if (!ok)
-        {
-            if (existing->GetSession())
-                existing->GetSession()->KickPlayer();
-        }
+        ForceLogoutViaPlayerbotHolder(existingAltbot);
 
         return true;
     }
